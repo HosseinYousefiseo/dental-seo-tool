@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
-import json
+import google.generativeai as genai
 
 # --- ۱. توابع مدیریت ناوبری (Navigation) ---
 def next_step():
@@ -18,7 +18,7 @@ def restart():
     st.session_state.data = {}
     st.rerun()
 
-# --- ۲. تنظیمات صفحه و ظاهر ---
+# --- ۲. تنظیمات صفحه ---
 st.set_page_config(page_title="Dental SEO Architect", page_icon="🦷", layout="wide")
 
 if 'step' not in st.session_state:
@@ -33,36 +33,27 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- ۳. تابع اصلاح‌شده برای ارتباط با Gemini (رفع خطای 404) ---
+# --- ۳. تابع هوشمند برای ارتباط با Gemini (حل مشکل 404) ---
 def get_gemini_response(prompt_task):
     api_key = st.session_state.get('api_key')
     if not api_key:
         return "⚠️ ابتدا API Key را در سایدبار وارد کنید."
     
-    # تغییر نسخه به v1 و اصلاح نام مدل برای پایداری (v1 نسبت به v1beta کمتر 404 می‌دهد)
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
-    
-    headers = {'Content-Type': 'application/json'}
-    payload = {
-        "contents": [{
-            "parts": [{"text": f"Context: Dental SEO Architect (Canada). Task: {prompt_task}. Data: {st.session_state.data}"}]
-        }]
-    }
-
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
-        res_json = response.json()
+        # پیکربندی با استفاده از کتابخانه رسمی گوگل
+        genai.configure(api_key=api_key)
         
-        if response.status_code == 200:
-            return res_json['candidates'][0]['content']['parts'][0]['text']
-        else:
-            # اگر v1 هم 404 داد، تلاش مجدد با ساختار جایگزین
-            error_msg = res_json.get('error', {}).get('message', 'Unknown Error')
-            return f"❌ خطای گوگل ({response.status_code}): {error_msg}"
+        # استفاده از مدل با نام کامل برای جلوگیری از خطای یافت نشد
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        context = f"Context: Dental SEO Architect (Canada). Task: {prompt_task}. Data: {st.session_state.data}"
+        
+        response = model.generate_content(context)
+        return response.text
     except Exception as e:
-        return f"❌ خطای اتصال: {str(e)}"
+        return f"❌ خطای مدل گوگل: {str(e)}"
 
-# --- ۴. سایدبار (مدیریت مراحل و دکمه بازگشت) ---
+# --- ۴. سایدبار با قابلیت بازگشت و ریست ---
 with st.sidebar:
     st.title("🦷 Control Panel")
     st.session_state.api_key = st.text_input("Gemini API Key:", type="password")
@@ -81,7 +72,7 @@ st.title("Dental SEO & CRO Architect")
 
 if st.session_state.step == 1:
     st.header("Step 1: URL & Service Lock")
-    # استفاده از مقادیر قبلی برای قابلیت Edit
+    # قابلیت ویرایش (مقادیر قبلی حفظ می‌شوند)
     url = st.text_input("آدرس صفحه خدمات:", value=st.session_state.data.get('url', ''))
     service = st.text_input("نام خدمت (مثلاً Dental Implants):", value=st.session_state.data.get('service', ''))
     
@@ -100,7 +91,7 @@ elif st.session_state.step == 2:
             st.success("تیترها استخراج شد.")
         except: st.error("خطا در استخراج خودکار.")
     
-    m = st.text_area("ویرایش یا ورود دستی تیترها:", value="\n".join(st.session_state.data.get('headings', [])))
+    m = st.text_area("ویرایش یا ورود دستی تیترها (هر خط یک تیتر):", value="\n".join(st.session_state.data.get('headings', [])))
     if st.button("تایید و ادامه"):
         st.session_state.data['headings'] = [line for line in m.split('\n') if line.strip()]
         next_step()
@@ -109,18 +100,18 @@ elif 3 <= st.session_state.step <= 12:
     tasks = {
         3: "Keyword Mapping (Primary, Secondary, Forbidden)",
         4: "SERP & Competitor Analysis",
-        5: "Patient Fears & Trust Signals",
-        6: "Interactive Conversion Mechanism",
+        5: "Patient Fears & E-E-A-T Response",
+        6: "Interactive Mechanism (Quiz/Calculator)",
         7: "CTA Strategy",
         8: "Local Wayfinding (Canada Context)",
-        9: "Final Page Copy",
-        10: "Visual Brief",
+        9: "Final Page Copy (Conversion Focused)",
+        10: "Visual Brief (Safe for Patients)",
         11: "Internal Linking Cluster",
-        12: "Technical Assets (JSON-LD & HTML)"
+        12: "Technical Assets (JSON-LD & Schema)"
     }
     st.header(f"Step {st.session_state.step}: {tasks[st.session_state.step]}")
     
-    if st.button(f"اجرای آنالیز هوشمند مرحله {st.session_state.step}"):
+    if st.button(f"اجرای آنالیز گام {st.session_state.step}"):
         with st.spinner("Gemini در حال تحلیل است..."):
             res = get_gemini_response(tasks[st.session_state.step])
             st.session_state.data[f'res_{st.session_state.step}'] = res
