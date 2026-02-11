@@ -3,13 +3,11 @@ import requests
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 
-# --- ۰. تنظیمات امنیتی API Key ---
-GEMINI_API_KEY = "AIzaSyAp7s-XmkTvqPh1fnJlnQCu9D0M6QNdEuw"
+# --- ۰. تنظیمات مستقیم API ---
+# استفاده از ساده‌ترین روش پیکربندی برای جلوگیری از خطای نسخه
+genai.configure(api_key="AIzaSyAp7s-XmkTvqPh1fnJlnQCu9D0M6QNdEuw")
 
-# پیکربندی اولیه - این متد استاندارد گوگل برای ست کردن API Key است
-genai.configure(api_key=GEMINI_API_KEY)
-
-# --- ۱. تنظیمات اولیه و مدیریت نشست ---
+# --- ۱. مدیریت نشست و گام‌ها ---
 if 'step' not in st.session_state: st.session_state.step = 0
 if 'data' not in st.session_state: st.session_state.data = {}
 
@@ -24,7 +22,7 @@ def prev_step():
 
 st.set_page_config(page_title="Dental SEO Architect Pro", page_icon="🦷", layout="wide")
 
-# --- ۲. استایل دهی ---
+# --- ۲. ظاهر برنامه ---
 st.markdown("""
     <style>
     .stProgress > div > div > div > div { background-color: #00cc99; }
@@ -33,119 +31,104 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- ۳. تابع ارتباط با Gemini (ساده‌سازی شده برای رفع خطا) ---
+# --- ۳. تابع فراخوانی هوش مصنوعی (نسخه فوق‌پایدار) ---
 def get_gemini_response(prompt_task):
     try:
-        # فراخوانی مدل بدون آپشن‌های پیچیده که باعث خطا می‌شوند
+        # متد استاندارد برای فراخوانی مدل بدون آپشن‌های دردسرساز
         model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        context = f"Role: Senior Dental SEO Manager Canada. Project Data: {st.session_state.data}. Task: {prompt_task}"
-        
-        # تولید محتوا به صورت مستقیم
+        context = f"You are a Senior Dental SEO Manager in Canada. Data: {st.session_state.data}. Task: {prompt_task}"
         response = model.generate_content(context)
-        
-        if response and response.text:
-            return response.text
-        else:
-            return "⚠️ پاسخ خالی از هوش مصنوعی دریافت شد."
-    except Exception as e: 
-        return f"❌ خطا در لایه هوش مصنوعی: {str(e)}"
+        return response.text
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
 
-# --- ۴. نوار پیشرفت ---
+# --- ۴. نوار وضعیت ---
 steps_titles = ["Welcome", "Data Input", "Keyword & Semantic", "SERP & Authority", "Psychology & Trust", "Tools & Finance", "Content & Meta", "Wireframe & Assets"]
 st.progress(st.session_state.step / (len(steps_titles) - 1))
-st.write(f"📍 گام فعلی: **{steps_titles[st.session_state.step]}**")
+st.write(f"📍 Phase: **{steps_titles[st.session_state.step]}**")
 st.divider()
 
-# --- ۵. مدیریت گام‌ها ---
+# --- ۵. اجرای گام‌ها ---
 
-# گام ۰: معرفی
+# گام ۰: خوش‌آمدگویی
 if st.session_state.step == 0:
     st.title("Dental SEO & CRO Architect Pro 🇨🇦")
-    st.info("اتصال به هوش مصنوعی بهینه‌سازی شد. آماده شروع آنالیز هستیم.")
-    if st.button("شروع پروسه"): next_step()
+    st.info("ابزار هوشمند تحلیل استراتژیک سئو دندانپزشکی. برای شروع روی دکمه زیر کلیک کنید.")
+    if st.button("شروع آنالیز"): next_step()
 
-# گام ۱: ورودی‌ها
+# گام ۱: دریافت ورودی‌ها
 elif st.session_state.step == 1:
-    st.header("Step 1: Deep Data Acquisition")
+    st.header("Step 1: Deep Data Input")
     col1, col2 = st.columns(2)
     with col1:
-        u = st.text_input("Target URL:", value=st.session_state.data.get('url',''))
-        s = st.text_input("Service Name:", value=st.session_state.data.get('service',''))
-        l = st.text_input("Target City/Location:", value=st.session_state.data.get('location',''))
-        c = st.multiselect("Conversion Goals (CTA):", 
-                           ["Phone Call", "Booking Form", "WhatsApp Chat", "Free Consultation", "Live Chat"],
-                           default=st.session_state.data.get('cta', ["Phone Call"]))
+        u = st.text_input("URL:", value=st.session_state.data.get('url',''))
+        s = st.text_input("Service:", value=st.session_state.data.get('service',''))
+        l = st.text_input("Location:", value=st.session_state.data.get('location',''))
+        c = st.multiselect("Conversion Goals (CTA):", ["Phone Call", "Booking Form", "WhatsApp", "Free Consultation"], default=st.session_state.data.get('cta', ["Phone Call"]))
     
     with col2:
         mk = st.text_input("Main Keyword:", value=st.session_state.data.get('main_k',''))
-        if st.button("Extract Keywords from URL", disabled=(not u or mk != "")):
-            with st.spinner("Analyzing..."):
-                res = get_gemini_response(f"Extract keywords from {u}")
-                st.info(f"AI Suggestions: {res[:150]}...")
         sk = st.text_area("Secondary Keywords:", value=st.session_state.data.get('sec_k',''))
     
-    h_input = st.text_area("Current Page Headings:", value=st.session_state.data.get('headings',''), height=100)
-    if st.button("Scrape Headings Automatically", disabled=(not u or h_input != "")):
-        try:
-            r = requests.get(u, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-            soup = BeautifulSoup(r.text, 'html.parser')
-            st.session_state.data['headings'] = "\n".join([f"{h.name.upper()}: {h.text.strip()}" for h in soup.find_all(['h1','h2','h3'])])
-            st.rerun()
-        except: st.error("Scraping failed.")
-
+    h = st.text_area("Existing Headings (تیترهای فعلی):", value=st.session_state.data.get('headings',''), height=100)
+    
     st.divider()
-    c1, c2 = st.columns(2)
-    with c1: st.button("🔙 Back", on_click=prev_step)
-    with c2: 
-        if st.button("Save & Next Step ➡️"):
-            st.session_state.data.update({'url':u, 'service':s, 'location':l, 'cta':c, 'main_k':mk, 'sec_k':sk, 'headings':h_input})
-            next_step()
+    nav1, nav2 = st.columns(2)
+    if nav1.button("🔙 Back"): prev_step()
+    if nav2.button("Confirm & Next ➡️"):
+        st.session_state.data.update({'url':u, 'service':s, 'location':l, 'cta':c, 'main_k':mk, 'sec_k':sk, 'headings':h})
+        next_step()
 
-# گام‌های ۲ تا ۷
+# گام‌های ۲ تا ۷ (تحلیلی)
 elif 2 <= st.session_state.step <= 7:
     task_map = {
-        2: "Keyword Mapping & Semantic Gap (Primary, Secondary, Forbidden Keywords).",
-        3: "SERP Deep Dive: Local Pack, Google Ads, and Organic Top 5 Analysis.",
+        2: "Analyze Keyword Mapping & Semantic Gaps (Primary, Secondary, Forbidden Keywords).",
+        3: "Perform SERP Deep Dive: Local Pack, Ads USPs, and Organic Top 5 Analysis.",
         4: "Identify 3 Patient Fears and provide E-E-A-T trust responses.",
-        5: "Suggest 2 Lead-gen tools (Quiz/Calculator) and Financial Transparency layout.",
+        5: "Suggest 2 Interactive Tools (Quiz/Calculator) and Financial Transparency layout.",
         6: "Rewrite Content: 3 Meta sets, Heading Critique Table, and Sectional CTA strategy.",
-        7: "Visual Wireframe Sitemap (Top-to-Bottom order) and JSON-LD Medical Schema."
+        7: "Visual Wireframe Sitemap (Top-to-Bottom order) and Internal Linking Strategy."
     }
     
-    st.header(f"Step {st.session_state.step}: {steps_titles[st.session_state.step]}")
-    if st.button(f"🚀 Generate {steps_titles[st.session_state.step]} Analysis"):
-        with st.spinner("Gemini is thinking..."):
+    st.header(steps_titles[st.session_state.step])
+    if st.button(f"🚀 Run AI Analysis for {steps_titles[st.session_state.step]}"):
+        with st.spinner("AI is thinking..."):
             res = get_gemini_response(task_map[st.session_state.step])
             st.session_state.data[f'res_{st.session_state.step}'] = res
-
+    
     if f'res_{st.session_state.step}' in st.session_state.data:
-        edited = st.text_area("Review & Edit Output:", value=st.session_state.data[f'res_{st.session_state.step}'], height=400)
+        edited = st.text_area("Edit Output:", value=st.session_state.data[f'res_{st.session_state.step}'], height=400)
         st.session_state.data[f'res_{st.session_state.step}'] = edited
+        
         st.divider()
         nav1, nav2 = st.columns(2)
-        with nav1: st.button("🔙 Back", on_click=prev_step, key=f"btn_back_{st.session_state.step}")
-        with nav2: st.button("Confirm & Next Step ➡️", on_click=next_step, key=f"btn_next_{st.session_state.step}")
+        if nav1.button("🔙 Back", key=f"b_{st.session_state.step}"): prev_step()
+        if nav2.button("Confirm & Next ➡️", key=f"n_{st.session_state.step}"): next_step()
     else:
-        st.button("🔙 Back", on_click=prev_step, key=f"btn_back_init_{st.session_state.step}")
+        if st.button("🔙 Back"): prev_step()
 
-# گام ۸: خروجی نهایی
+# گام نهایی
 elif st.session_state.step == 8:
     st.header("🏁 Final Strategy Portfolio")
-    final_output = ""
+    final_rep = ""
     for i in range(2, 8):
-        final_output += f"### {steps_titles[i]}\n\n{st.session_state.data.get(f'res_{i}', '')}\n\n---\n"
-    st.markdown(final_output)
-    st.download_button("📥 Download Full Strategy", final_output, file_name="dental_strategy.txt")
+        final_rep += f"### {steps_titles[i]}\n{st.session_state.data.get(f'res_{i}', '')}\n\n---\n"
+    
+    st.markdown(final_rep)
+    
+    if st.button("Generate JSON-LD Schema"):
+        st.code(get_gemini_response("Create MedicalProcedure JSON-LD Schema."), language="json")
+        
+    st.download_button("📥 Download Report", final_rep, file_name="dental_strategy.txt")
     if st.button("🗑 Restart Audit"):
         st.session_state.step = 0
         st.session_state.data = {}
         st.rerun()
 
 with st.sidebar:
-    st.title("Admin")
-    st.success("HuggingFace/Streamlit Connection Active ✅")
-    if st.button("Reset Everything"): 
+    st.title("Admin Panel")
+    st.success("API Key is Active")
+    if st.button("Reset App"):
         st.session_state.step = 0
         st.session_state.data = {}
         st.rerun()
