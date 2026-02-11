@@ -2,10 +2,11 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import google.generativeai as genai
-from google.generativeai.types import RequestOptions
 
-# --- ۰. تنظیمات امنیتی و پایداری API ---
+# --- ۰. تنظیمات امنیتی API Key ---
 GEMINI_API_KEY = "AIzaSyAp7s-XmkTvqPh1fnJlnQCu9D0M6QNdEuw"
+
+# پیکربندی اولیه - این متد استاندارد گوگل برای ست کردن API Key است
 genai.configure(api_key=GEMINI_API_KEY)
 
 # --- ۱. تنظیمات اولیه و مدیریت نشست ---
@@ -32,22 +33,21 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- ۳. تابع ارتباط با Gemini (حل مشکل 404 با اجبار نسخه v1) ---
+# --- ۳. تابع ارتباط با Gemini (ساده‌سازی شده برای رفع خطا) ---
 def get_gemini_response(prompt_task):
     try:
-        # اجبار سیستم به استفاده از نسخه پایدار v1 برای جلوگیری از خطای 404
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash'
-        )
+        # فراخوانی مدل بدون آپشن‌های پیچیده که باعث خطا می‌شوند
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         context = f"Role: Senior Dental SEO Manager Canada. Project Data: {st.session_state.data}. Task: {prompt_task}"
         
-        # استفاده از RequestOptions برای فیکس کردن نسخه API
-        response = model.generate_content(
-            context,
-            request_options=RequestOptions(api_version='v1')
-        )
-        return response.text
+        # تولید محتوا به صورت مستقیم
+        response = model.generate_content(context)
+        
+        if response and response.text:
+            return response.text
+        else:
+            return "⚠️ پاسخ خالی از هوش مصنوعی دریافت شد."
     except Exception as e: 
         return f"❌ خطا در لایه هوش مصنوعی: {str(e)}"
 
@@ -57,12 +57,15 @@ st.progress(st.session_state.step / (len(steps_titles) - 1))
 st.write(f"📍 گام فعلی: **{steps_titles[st.session_state.step]}**")
 st.divider()
 
-# --- ۵. مدیریت گام‌ها (بخش ورودی اطلاعات) ---
+# --- ۵. مدیریت گام‌ها ---
+
+# گام ۰: معرفی
 if st.session_state.step == 0:
     st.title("Dental SEO & CRO Architect Pro 🇨🇦")
-    st.info("اتصال به Gemini v1 برقرار شد. آماده شروع آنالیز استراتژیک هستیم.")
+    st.info("اتصال به هوش مصنوعی بهینه‌سازی شد. آماده شروع آنالیز هستیم.")
     if st.button("شروع پروسه"): next_step()
 
+# گام ۱: ورودی‌ها
 elif st.session_state.step == 1:
     st.header("Step 1: Deep Data Acquisition")
     col1, col2 = st.columns(2)
@@ -119,11 +122,12 @@ elif 2 <= st.session_state.step <= 7:
     if f'res_{st.session_state.step}' in st.session_state.data:
         edited = st.text_area("Review & Edit Output:", value=st.session_state.data[f'res_{st.session_state.step}'], height=400)
         st.session_state.data[f'res_{st.session_state.step}'] = edited
-        c1, c2 = st.columns(2)
-        with c1: st.button("🔙 Back", on_click=prev_step)
-        with c2: st.button("Confirm & Next Step ➡️", on_click=next_step)
+        st.divider()
+        nav1, nav2 = st.columns(2)
+        with nav1: st.button("🔙 Back", on_click=prev_step, key=f"btn_back_{st.session_state.step}")
+        with nav2: st.button("Confirm & Next Step ➡️", on_click=next_step, key=f"btn_next_{st.session_state.step}")
     else:
-        st.button("🔙 Back", on_click=prev_step)
+        st.button("🔙 Back", on_click=prev_step, key=f"btn_back_init_{st.session_state.step}")
 
 # گام ۸: خروجی نهایی
 elif st.session_state.step == 8:
@@ -140,7 +144,7 @@ elif st.session_state.step == 8:
 
 with st.sidebar:
     st.title("Admin")
-    st.success("API Version: v1 (Stable) ✅")
+    st.success("HuggingFace/Streamlit Connection Active ✅")
     if st.button("Reset Everything"): 
         st.session_state.step = 0
         st.session_state.data = {}
